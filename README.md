@@ -18,7 +18,7 @@ python fastplot.py function
 The function to plot must be defined in a separate file, along with the possible settings of the plot.
 Possible settings are :
 - the range of evaluation `[m, M]` by setting `m` **and** `M` (default `m, M = 0, 100`)
-- the number `n` of evenly spaced values to get, can be defined using m and M (default `n=2*(M-m)`) 
+- the number `n` of evenly spaced values to get, can be defined using m and M only if they are defined in the same file (default `n=2*(M-m)`) 
 - The `label` to be shown in the legend (default `label = ""`)
 
 Example of "function" file :

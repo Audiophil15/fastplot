@@ -46,7 +46,7 @@ if __name__ == "__main__" :
 
 		m, M = 0, 100
 		n = 2*(M-m)
-		label = "aaa"
+		label = ""
 
 		try :
 			print(argv[1])
