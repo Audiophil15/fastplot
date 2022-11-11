@@ -28,7 +28,7 @@ def f(x) :
 	return x**3 - 15*x*x + 0.21*x + e
 """
 
-usage = "Usage : python fastplot.py <function>\nNo .py extension should be used after the function file"
+usage = "Usage : python fastplot.py <file>\nNo .py extension should be left after the function file (but the script will remove it if your forget to)."
 
 
 if __name__ == "__main__" :
@@ -49,7 +49,9 @@ if __name__ == "__main__" :
 		label = ""
 
 		try :
-			print(argv[1])
+			# If the extension is left, it will be removed
+			if argv[1][-3:] == ".py" :
+				argv[1] = argv[1][:-3]
 			function = __import__(argv[1], globals(), locals(), [], 0)
 
 			try :
