@@ -4,6 +4,9 @@ import numpy as np
 from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 from sys import argv
+from Equation import Expression
+import re
+
 
 """
 Script meant to allow fast plotting of (1) simple functions, possibly with some constant parameters in addition of the variable, or (2) data files, made of one or two columns of numbers.
@@ -21,8 +24,6 @@ It needs a file with the values to be plotted given either as one column which w
 
 In both cases a label, title, and axis labels can be set. When defined in a Python file the values must be enclosed in quotes (") to be parsed, in a data file quotes don't change anything.
 All those fields are empty by default.
-
-
 """
 
 """
@@ -38,6 +39,8 @@ label = "f(x) = x^3 - 15x^2 + 0.21x + e"
 def f(x) :
 	return x**3 - 15*x*x + 0.21*x + e
 """
+
+"""Parse tools"""
 
 def parseOptions(argv) :
 	global mode
@@ -55,7 +58,7 @@ def parseOptions(argv) :
 				plotmode += "p"
 			if "r" in a :
 				try :
-					order = int(arg.split("r")[1][0])
+					order = int(arg.split("r")[1].strip()[0])
 				except :
 					order = 1
 
@@ -82,7 +85,27 @@ def findinfile(fieldname, file) :
 	return value
 
 
-usage = "Usage : python fastplot.py mode [plotmode] (file|expression)\nNo .py extension should be left after the function file (but the script will remove it if your forget to).\nModes available :\n\t-e  : Enter an equation that will be parsed\n\t-ff : Give a file containing a python-defined function\n\t-df : Give a file containing data on two columns that will be plotted or scattered\nModes for the plot (can be combined) :\n\t-s : Points will be scattered\n\t-p : Points will form a continuous curve\n"
+"""Equation parser functions"""
+
+# Tests if the user entered something like "2x+5" which isn't parsed. Nothing stops him to write "xy" instead of "x*y" though.
+def hasImpliedMultiplication(expression) :
+	found = re.search("[0-9]+[a-zA-Z]+", expression)
+	return found
+
+def impliedMultiplicationError(foundExpr) :
+	print("\n\tError : Multiplication should be explicit : \"%s\" instead of \"%s\"\n"%( re.search("[0-9]+", foundExpr.group()).group()+"*"+re.search("[a-zA-Z]+", foundExpr.group()).group(), foundExpr.group()))
+
+def stringToFunc(string) :
+	found = hasImpliedMultiplication(string)
+	if found :
+		impliedMultiplicationError(found)
+		raise ValueError("The string has implied multiplication")
+	else :
+		return Expression(string, ["x"])
+
+
+
+usage = "Usage : python fastplot.py mode -(plotmode) -[options] (file|expression)\nModes available :\n\t-e  : Enter an equation that will be parsed\n\t-ff : Give a file containing a python-defined function\n\t-df : Give a file containing data on one or two columns that will be plotted or scattered\nModes for the plot (can be combined) :\n\t-s : Points will be scattered\n\t-p : Points will form a continuous curve\n\t-r<order> : A fitting curve is plotted over the plotted curve/data, of the given order (max 9)\n"
 
 
 if __name__ == "__main__" :
@@ -119,9 +142,12 @@ if __name__ == "__main__" :
 		exit(22)
 
 	if mode == "e" :
+
+		f = stringToFunc(filepath)
 		pass
 
 	if mode != "e" :
+
 		file = open(filepath, "r")
 		title = findinfile("title", file)
 		label = findinfile("label", file)
@@ -137,6 +163,7 @@ if __name__ == "__main__" :
 				filepath = filepath[:-3]
 			function = __import__(filepath, globals(), locals(), [], 0)
 
+			f = function.f
 			try :
 				m, M = function.m, function.M
 			except :
@@ -153,10 +180,13 @@ if __name__ == "__main__" :
 			print("Error during the import of the file containing the function to plot.")
 			exit(2)
 
+	if mode in ["e", "ff"] :
+
 		x = np.linspace(m, M, n)
-		y = function.f(x)
+		y = f(x)
 
 	if mode == "df" :
+
 		file = open(filepath, "r")
 		data = []
 
