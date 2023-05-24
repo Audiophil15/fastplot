@@ -1,17 +1,28 @@
+#!/bin/python3
+
 import numpy as np
+from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 from sys import argv
 
 """
-Script meant to allow fast plotting of simple functions, possibly with some constant parameters in addition of the variable
-It needs an associated file to import, in which the mathematical function to plot and all other constants are defined.
+Script meant to allow fast plotting of (1) simple functions, possibly with some constant parameters in addition of the variable, or (2) data files, made of one or two columns of numbers.
 
+If (1) :
+It needs an associated file to import, in which the mathematical function to plot and all other constants are defined.
 The main mathematical function must be named f (defined as something like 'def f(x)').
 Constant parameters need to be defined and assigned in the same file.
 
 Range of evaluation is set by default to [0, 100]. It can be change by defining integers m and M
 Number of evaluations on the choosen interval is set by default to 2*(M-m). Can also be changed by defining an integer n.
-Legend label is empty by default, can be set declaring a 'label' string variable.
+
+If (2) :
+It needs a file with the values to be plotted given either as one column which will be plotted against arbitrary absciss axis, or as two columns, the values of the second column plotted against the ones of the first.
+
+In both cases a label, title, and axis labels can be set. When defined in a Python file the values must be enclosed in quotes (") to be parsed, in a data file quotes don't change anything.
+All those fields are empty by default.
+
+
 """
 
 """
@@ -29,10 +40,11 @@ def f(x) :
 """
 
 def parseOptions(argv) :
-	mode = ""
-	plotmode = ""
-	filepath = ""
-	order = 0
+	global mode
+	global plotmode
+	global filepath
+	global order
+	global filtering
 	for arg in argv[1:] :
 		if arg[0] == "-" :
 			if (a := arg[1:]) in ["e", "df", "ff"] :
@@ -57,12 +69,13 @@ def parseOptions(argv) :
 
 def findinfile(fieldname, file) :
 	value = ""
+	file.seek(0)
 	for l in file.readlines() :
 		if fieldname in l :
 			try :
 				founds = list(map(str.strip, l.split("=")))
 				if fieldname in founds :
-					value = founds[-1].strip()
+					value = l[l.find("=")+1:].strip().replace('"','')
 			except :
 				pass
 	file.seek(0)
@@ -81,108 +94,99 @@ if __name__ == "__main__" :
 		print(usage)
 		exit(1)
 
-	else :
+	# Defining the defaults for the needed variables
 
-		mode, plotmode, order, filepath = parseOptions(argv)
-		if mode == "" :
-			print("You need to choose a mode !")
-			exit(21)
-		if filepath == "" :
-			print("You need to give a file path !")
-			exit(22)
+	mode = ""
+	plotmode = ""
+	filepath = ""
 
-		# Defining the defaults for the needed variables
+	m, M = 0, 100
+	n = 2*(M-m)
+	order = 0
 
-		m, M = 0, 100
-		n = 2*(M-m)
-		title = ""
-		label = ""
-		xlabel = ""
-		ylabel = ""
+	title = ""
+	label = ""
+	xlabel = ""
+	ylabel = ""
 
+	parseOptions(argv)
 
-		if mode == "e" :
-			pass
+	if mode == "" :
+		print("You need to choose a mode !")
+		exit(21)
+	if filepath == "" :
+		print("You need to give a file path !")
+		exit(22)
 
-		if mode == "ff" :
+	if mode == "e" :
+		pass
+
+	if mode != "e" :
+		file = open(filepath, "r")
+		title = findinfile("title", file)
+		label = findinfile("label", file)
+		xlabel = findinfile("xlabel", file)
+		ylabel = findinfile("ylabel", file)
+		file.close()
+
+	if mode == "ff" :
+
+		try :
+			# If the extension is left, it will be removed
+			if filepath[-3:] == ".py" :
+				filepath = filepath[:-3]
+			function = __import__(filepath, globals(), locals(), [], 0)
 
 			try :
-				# If the extension is left, it will be removed
-				if filepath[-3:] == ".py" :
-					filepath = filepath[:-3]
-				function = __import__(filepath, globals(), locals(), [], 0)
-
-				try :
-					m, M = function.m, function.M
-				except :
-					print("No custom window range found")
-					pass
-				try :
-					n = function.n
-				except :
-					print("No custom sample number found")
-					pass
-				try :
-					title = function.title
-				except :
-					print("No custom title found")
-					pass
-				try :
-					label = function.label
-				except :
-					print("No custom label found")
-					pass
-				try :
-					xlabel = function.xlabel
-				except :
-					print("No custom label found for x")
-					pass
-				try :
-					ylabel = function.ylabel
-				except :
-					print("No custom label found for y")
-					pass
-
+				m, M = function.m, function.M
 			except :
-				print("Error during the import of the file containing the function to plot.")
-				exit(2)
+				print("No custom window range found")
+				pass
+			try :
+				n = function.n
+			except :
+				print("No custom sample number found")
+				pass
 
-			x = np.linspace(m, M, n)
-			y = function.f(x)
+		except Exception as e :
+			print("Error : ", e)
+			print("Error during the import of the file containing the function to plot.")
+			exit(2)
 
-		if mode == "df" :
-			file = open(filepath, "r")
-			data = []
+		x = np.linspace(m, M, n)
+		y = function.f(x)
 
-			title = findinfile("title", file)
-			label = findinfile("label", file)
-			xlabel = findinfile("xlabel", file)
-			ylabel = findinfile("ylabel", file)
-			for l in file.readlines() :
-				try :
-					if (d := list(map(float, l.split()))) != [] :
-						data.append(d)
-				except :
-					pass
+	if mode == "df" :
+		file = open(filepath, "r")
+		data = []
 
-			data = list(zip(*data))
-			if len(data) == 1 :
-				y = data[0]
-				x = list(range(len(y)))
-			elif len(data) == 2 :
-				x, y = data
+		for l in file.readlines() :
+			try :
+				if (d := list(map(float, l.split()))) != [] :
+					data.append(d)
+			except :
+				pass
 
-		if "s" in plotmode :
-			plt.scatter(x, y, label=label)
-		if "p" in plotmode :
-			plt.plot(x, y, label=label)
-		if order :
-			reg = np.polynomial.polynomial.Polynomial.fit(x, y, order)
-			plt.plot(x, reg(np.array(x)), label=reg.convert())
-			plt.legend()
-		if (label!="") :
-			plt.legend()
-		plt.title(title)
-		plt.xlabel(xlabel)
-		plt.ylabel(ylabel)
-		plt.show()
+		data = list(zip(*data))
+
+		if len(data) == 1 :
+			y = data[0]
+			x = list(range(len(y)))
+		elif len(data) == 2 :
+			x, y = data
+		file.close()
+
+	if "s" in plotmode :
+		plt.scatter(x, y, label=label)
+	if "p" in plotmode :
+		plt.plot(x, y, label=label)
+	if order :
+		reg = np.polynomial.polynomial.Polynomial.fit(x, y, order)
+		plt.plot(x, reg(np.array(x)), label=reg.convert())
+		plt.legend()
+	if (label!="") :
+		plt.legend()
+	plt.title(title)
+	plt.xlabel(xlabel)
+	plt.ylabel(ylabel)
+	plt.show()
